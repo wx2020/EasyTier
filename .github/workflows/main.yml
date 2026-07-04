@@ -1,0 +1,56 @@
+name: Upstream Sync with Safeguard
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync_all_branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出当前仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT }} # 记得替换为你自己的 PAT
+
+      - name: 同步并执行安全检查
+        env:
+          UPSTREAM_REPO: "https://github.com/上游作者/上游仓库.git"
+        run: |
+          # 1. 添加并拉取上游
+          git remote add upstream ${{ env.UPSTREAM_REPO }}
+          git fetch upstream
+          
+          # ================= 安全检查阶段 (防删库) =================
+          echo "开始执行安全健康检查..."
+          
+          # 检查 A: 确定上游主分支 (尝试寻找 main 或 master)
+          if git show-ref --verify --quiet refs/remotes/upstream/main; then
+            DEFAULT_BRANCH="refs/remotes/upstream/main"
+          elif git show-ref --verify --quiet refs/remotes/upstream/master; then
+            DEFAULT_BRANCH="refs/remotes/upstream/master"
+          else
+            echo "🚨 致命异常: 上游找不到 main 或 master 分支，疑似分支被清空！"
+            exit 1 # 退出脚本，终止工作流
+          fi
+          
+          # 检查 B: 检查主分支的文件数量 (防御 rm -rf *)
+          # 统计主分支根目录及子目录下的总文件数
+          FILE_COUNT=$(git ls-tree -r $DEFAULT_BRANCH | wc -l)
+          echo "上游主分支包含文件数: $FILE_COUNT"
+          
+          # 设定一个安全阈值，如果你的项目通常有上百个文件，这里可以设置为 10 或 50
+          SAFE_THRESHOLD=5 
+          if [ "$FILE_COUNT" -lt "$SAFE_THRESHOLD" ]; then
+            echo "🚨 致命异常: 上游文件数量异常减少 (当前 $FILE_COUNT < 阈值 $SAFE_THRESHOLD)！疑似删库清空！"
+            exit 1
+          fi
+          
+          echo "✅ 安全检查通过，允许同步。"
+          # =========================================================
+
+          # 2. 检查通过后，再执行强制推送
+          git push origin "refs/remotes/upstream/*:refs/heads/*" --force
+          git push origin --tags --force
