@@ -12,22 +12,9 @@ pub mod toml;
 
 pub use encryption::EncryptionAlgorithm;
 
-pub(crate) const DEFAULT_UDP_STUN_SERVERS: &[&str] = &[
-    "txt:stun.easytier.cn",
-    "stun.miwifi.com",
-    "stun.chat.bilibili.com",
-    "stun.hitv.com",
-];
-pub(crate) const DEFAULT_TCP_STUN_SERVERS: &[&str] = &[
-    "stun.hot-chilli.net",
-    "stun.fitauto.ru",
-    "fwa.lifesizecloud.com",
-    "global.turn.twilio.com",
-    "turn.cloudflare.com",
-    "stun.voip.blackberry.com",
-    "stun.radiojar.com",
-];
-pub(crate) const DEFAULT_UDP_V6_STUN_SERVERS: &[&str] = &["txt:stun-v6.easytier.cn"];
+pub(crate) const DEFAULT_UDP_STUN_SERVERS: &[&str] = &[];
+pub(crate) const DEFAULT_TCP_STUN_SERVERS: &[&str] = &[];
+pub(crate) const DEFAULT_UDP_V6_STUN_SERVERS: &[&str] = &[];
 
 pub(crate) fn default_stun_servers(servers: &[&str]) -> Vec<String> {
     servers.iter().map(ToString::to_string).collect()
