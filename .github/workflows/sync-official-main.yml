@@ -1,4 +1,4 @@
-name: Sync Offical Main
+name: Sync Official Main
 
 on:
   schedule:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sync-offical-main
+  group: sync-official-main
   cancel-in-progress: false
 
 jobs:
@@ -42,13 +42,13 @@ jobs:
           commit=$(git rev-parse refs/remotes/official/main)
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
-      - name: Update offical-main branch
+      - name: Update official-main branch
         id: branch
         env:
           COMMIT: ${{ steps.source.outputs.commit }}
         run: |
           set -euo pipefail
-          destination=refs/heads/offical-main
+          destination=refs/heads/official-main
           current=$(git ls-remote --heads origin "$destination" | awk 'NR == 1 { print $1 }')
           if [[ "$current" == "$COMMIT" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -69,10 +69,10 @@ jobs:
           CHANGED: ${{ steps.branch.outputs.changed }}
         run: |
           {
-            echo "## Offical main sync"
+            echo "## Official main sync"
             echo
             echo "- Source: \`EasyTier/EasyTier:main\`"
-            echo "- Destination: \`offical-main\`"
+            echo "- Destination: \`official-main\`"
             echo "- Commit: \`$COMMIT\`"
             echo "- Branch updated: \`$CHANGED\`"
           } >> "$GITHUB_STEP_SUMMARY"

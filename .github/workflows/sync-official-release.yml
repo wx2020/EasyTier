@@ -1,4 +1,4 @@
-name: Sync Offical Release
+name: Sync Official Release
 
 on:
   schedule:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sync-offical-release
+  group: sync-official-release
   cancel-in-progress: false
 
 jobs:
@@ -71,13 +71,13 @@ jobs:
             exit 1
           fi
 
-      - name: Update offical-release branch
+      - name: Update official-release branch
         id: branch
         env:
           COMMIT: ${{ steps.source.outputs.commit }}
         run: |
           set -euo pipefail
-          destination=refs/heads/offical-release
+          destination=refs/heads/official-release
           current=$(git ls-remote --heads origin "$destination" | awk 'NR == 1 { print $1 }')
           if [[ "$current" == "$COMMIT" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -107,10 +107,10 @@ jobs:
           CHANGED: ${{ steps.branch.outputs.changed }}
         run: |
           {
-            echo "## Offical release sync"
+            echo "## Official release sync"
             echo
             echo "- Release: \`$TAG\`"
-            echo "- Destination: \`offical-release\`"
+            echo "- Destination: \`official-release\`"
             echo "- Commit: \`$COMMIT\`"
             echo "- Branch updated: \`$CHANGED\`"
           } >> "$GITHUB_STEP_SUMMARY"
