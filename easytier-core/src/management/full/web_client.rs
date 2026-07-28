@@ -372,12 +372,14 @@ mod tests {
     #[test]
     fn endpoint_rejects_shorthand_without_official_fallback() {
         let error = ConfigServerEndpoint::parse("team%2Ftoken", |_| true).unwrap_err();
-        assert!(error.to_string().contains("private builds require a full URL"));
+        assert!(
+            error
+                .to_string()
+                .contains("private builds require a full URL")
+        );
 
-        let endpoint = ConfigServerEndpoint::parse("udp://example.com:22020/team%2Ftoken", |_| {
-            true
-        })
-        .unwrap();
+        let endpoint =
+            ConfigServerEndpoint::parse("udp://example.com:22020/team%2Ftoken", |_| true).unwrap();
         assert_eq!(endpoint.token(), "team/token");
         assert_eq!(endpoint.connect_url().as_str(), "udp://example.com:22020");
     }
