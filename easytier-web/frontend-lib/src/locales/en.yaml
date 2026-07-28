@@ -419,11 +419,11 @@ mode:
 config-server:
   title: Config Server
   address: Config Server Address
-  address_placeholder: "e.g.: udp://127.0.0.1:22020/admin or admin"
+  address_placeholder: "e.g.: udp://127.0.0.1:22020/admin"
   description: |
     Config server address, allowed formats:
     Full URL: udp://127.0.0.1:22020/admin
-    Username only: admin (uses official server)
+    Username only values are disabled in private builds
     Leave blank: Don't connect to a config server
   connection_status: Connection Status
   connected: ": Connected"

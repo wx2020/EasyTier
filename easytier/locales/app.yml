@@ -5,11 +5,11 @@ core_clap:
     en: |+
       config server address, allow format:
       full url: --config-server udp://127.0.0.1:22020/admin, 'udp' can be replaced with tcp, ws, wss (when config server ws is proxied to wss)
-      only user name: --config-server admin, will use official server
+      short user names are disabled in private builds; provide a full config-server URL
     zh-CN: |+
       配置服务器地址。允许格式：
       完整URL：--config-server udp://127.0.0.1:22020/admin，udp可以根据配置服务器替换为 tcp，ws，wss(配置服务器ws被代理为wss时)
-      仅用户名：--config-server admin，将使用官方的服务器
+      私有构建已禁用仅用户名格式，请提供完整 config-server URL
   machine_id:
     en: |+
       the machine id to identify this machine, used for config recovery after disconnection, must be unique and fixed. by default it is loaded from persisted local state; on first start it may be migrated from system information or generated, then remains fixed.

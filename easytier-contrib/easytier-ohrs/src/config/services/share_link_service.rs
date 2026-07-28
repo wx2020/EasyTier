@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use url::Url;
 use uuid::Uuid;
 
-const SHARE_LINK_HOST: &str = "easytier.cn";
+const SHARE_LINK_HOST: &str = "localhost";
 const SHARE_LINK_PATH: &str = "/comp_cfg";
 
 fn field_name_to_id_map() -> HashMap<String, String> {

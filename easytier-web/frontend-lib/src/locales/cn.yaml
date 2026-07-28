@@ -419,11 +419,11 @@ mode:
 config-server:
   title: 配置服务器
   address: 配置服务器地址
-  address_placeholder: 例如：udp://127.0.0.1:22020/admin 或 admin
+  address_placeholder: 例如：udp://127.0.0.1:22020/admin
   description: |
     配置服务器地址，支持以下格式：
     完整URL：udp://127.0.0.1:22020/admin
-    仅用户名：admin（使用官方服务器）
+    私有构建已禁用仅用户名格式
     留空：不连接配置服务器
   connection_status: 连接状态
   connected: ": 已连接"

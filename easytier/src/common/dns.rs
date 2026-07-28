@@ -475,15 +475,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_socket_addrs() {
-        let url = url::Url::parse("tcp://github-ci-test.easytier.cn:80").unwrap();
+        let url = url::Url::parse("tcp://127.0.0.1:80").unwrap();
         let addrs = socket_addrs(&url, || Some(80)).await.unwrap();
-        assert_eq!(2, addrs.len(), "addrs: {:?}", addrs);
+        assert_eq!(1, addrs.len(), "addrs: {:?}", addrs);
         println!("addrs: {:?}", addrs);
 
         let addrs = socket_addrs_with_system_resolver(&url, || Some(80), false)
             .await
             .unwrap();
-        assert_eq!(2, addrs.len(), "addrs: {:?}", addrs);
+        assert_eq!(1, addrs.len(), "addrs: {:?}", addrs);
         println!("addrs2: {:?}", addrs);
     }
 

@@ -700,7 +700,7 @@ try {
                 $configServer = Get-InputWithNoNullOrWhiteSpace -Prompt "自定义管理服务器(格式: 协议://IP:端口/用户)" 
             }
             else {
-                $configServer = Get-InputWithNoNullOrWhiteSpace -Prompt "官方服务器用户名"
+                throw "私有构建已禁用官方配置服务器，请输入自定义管理服务器完整 URL"
             }
             $OPTIONS += "--config-server $configServer"
         } 
