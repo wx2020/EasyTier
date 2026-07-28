@@ -1,0 +1,116 @@
+name: Sync Offical Release
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-offical-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync latest official release tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require sync token
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          if [[ -z "$SYNC_TOKEN" ]]; then
+            echo "Missing SYNC_TOKEN repository secret with Contents and Workflows write permissions." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Resolve latest official release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag=$(gh api repos/EasyTier/EasyTier/releases/latest --jq '.tag_name')
+          if [[ -z "$tag" || "$tag" != v* || "$tag" == *-* ]]; then
+            echo "Refusing non-stable release tag: $tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch official tag
+        id: source
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git remote add official https://github.com/EasyTier/EasyTier.git
+          git fetch --no-tags official "+refs/tags/$TAG:refs/official-tags/$TAG"
+          tag_object=$(git rev-parse "refs/official-tags/$TAG")
+          commit=$(git rev-parse "refs/official-tags/$TAG^{}")
+          echo "tag_object=$tag_object" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Validate destination tag
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          TAG_OBJECT: ${{ steps.source.outputs.tag_object }}
+        run: |
+          set -euo pipefail
+          remote_tag=$(git ls-remote --tags origin "refs/tags/$TAG" | awk 'NR == 1 { print $1 }')
+          if [[ -n "$remote_tag" && "$remote_tag" != "$TAG_OBJECT" ]]; then
+            echo "Tag $TAG already exists with a different object: $remote_tag" >&2
+            exit 1
+          fi
+
+      - name: Update offical-release branch
+        id: branch
+        env:
+          COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          set -euo pipefail
+          destination=refs/heads/offical-release
+          current=$(git ls-remote --heads origin "$destination" | awk 'NR == 1 { print $1 }')
+          if [[ "$current" == "$COMMIT" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -n "$current" ]]; then
+            git push origin \
+              --force-with-lease="$destination:$current" \
+              "$COMMIT:$destination"
+          else
+            git push origin "$COMMIT:$destination"
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Mirror official release tag
+        if: steps.branch.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git push origin "refs/official-tags/$TAG:refs/tags/$TAG"
+
+      - name: Add job summary
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          COMMIT: ${{ steps.source.outputs.commit }}
+          CHANGED: ${{ steps.branch.outputs.changed }}
+        run: |
+          {
+            echo "## Offical release sync"
+            echo
+            echo "- Release: \`$TAG\`"
+            echo "- Destination: \`offical-release\`"
+            echo "- Commit: \`$COMMIT\`"
+            echo "- Branch updated: \`$CHANGED\`"
+          } >> "$GITHUB_STEP_SUMMARY"
