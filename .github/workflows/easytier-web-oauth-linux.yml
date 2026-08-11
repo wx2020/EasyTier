@@ -51,6 +51,15 @@ jobs:
         with:
           build-filter: "./easytier-web/*"
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "35.1"
+          repo-token: ${{ github.token }}
+
+      - name: Verify protoc version
+        run: test "$(protoc --version)" = "libprotoc 35.1"
+
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
