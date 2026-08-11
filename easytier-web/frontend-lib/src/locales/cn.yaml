@@ -278,6 +278,23 @@ web:
     back_to_login: 返回登录
     login: 登录
     sso_login: "SSO 登录"
+    welcome: "连接所有设备，管理一个安全网络。"
+    subtitle: "登录后管理 EasyTier 设备、网络和运行时配置。"
+    secure_auth: "采用带 PKCE 的 OAuth 2.0/OIDC 授权码流程"
+    account_access: "账户访问"
+    create_account: "创建账户"
+    api_host_placeholder: "https://easytier.example.com"
+    api_host_hint: "请选择保存此账户的 EasyTier API 服务。"
+    sso_provider: "单点登录"
+    continue_with: "使用 {provider} 继续"
+    checking_sso: "正在检查单点登录"
+    or_password: "或使用密码继续"
+    sso_unavailable: "无法检查此 API 服务的单点登录配置，仍可使用密码登录。"
+    login_failed: "登录失败"
+    register_failed: "注册失败"
+    register_success: "注册成功"
+    refresh_captcha: "刷新验证码"
+    captcha_alt: "注册验证码"
 
   register:
     title: 注册
