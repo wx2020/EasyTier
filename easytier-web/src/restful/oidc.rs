@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use super::AppStateInner;
 
 const DEFAULT_OIDC_SCOPES: [&str; 2] = ["openid", "profile"];
+const DEFAULT_OIDC_PROVIDER_NAME: &str = "Single Sign-On";
 
 fn normalize_oidc_scopes(scopes: &[String]) -> Vec<String> {
     let mut normalized: Vec<String> = scopes
@@ -125,17 +126,20 @@ fn timing_safe_eq(a: &str, b: &str) -> bool {
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct OidcOptions {
-    #[arg(long, help = t!("cli.oidc_issuer_url").to_string())]
+    #[arg(long, env = "ET_OIDC_ISSUER_URL", help = t!("cli.oidc_issuer_url").to_string())]
     pub oidc_issuer_url: Option<String>,
 
-    #[arg(long, help = t!("cli.oidc_client_id").to_string())]
+    #[arg(long, env = "ET_OIDC_CLIENT_ID", help = t!("cli.oidc_client_id").to_string())]
     pub oidc_client_id: Option<String>,
 
     #[arg(long, env = "OIDC_CLIENT_SECRET", help = t!("cli.oidc_client_secret").to_string())]
     pub oidc_client_secret: Option<String>,
 
-    #[arg(long, default_value = "preferred_username", help = t!("cli.oidc_username_claim").to_string())]
+    #[arg(long, env = "ET_OIDC_USERNAME_CLAIM", default_value = "preferred_username", help = t!("cli.oidc_username_claim").to_string())]
     pub oidc_username_claim: String,
+
+    #[arg(long, env = "ET_OIDC_PROVIDER_NAME", default_value = DEFAULT_OIDC_PROVIDER_NAME, help = t!("cli.oidc_provider_name").to_string())]
+    pub oidc_provider_name: String,
 
     #[arg(
         long,
@@ -145,13 +149,13 @@ pub struct OidcOptions {
     )]
     pub oidc_scopes: Vec<String>,
 
-    #[arg(long, help = t!("cli.oidc_redirect_url").to_string())]
+    #[arg(long, env = "ET_OIDC_REDIRECT_URL", help = t!("cli.oidc_redirect_url").to_string())]
     pub oidc_redirect_url: Option<String>,
 
     #[arg(long, default_value = "false", help = t!("cli.oidc_disable_pkce").to_string())]
     pub oidc_disable_pkce: bool,
 
-    #[arg(long, help = t!("cli.oidc_frontend_base_url").to_string())]
+    #[arg(long, env = "ET_OIDC_FRONTEND_BASE_URL", help = t!("cli.oidc_frontend_base_url").to_string())]
     pub oidc_frontend_base_url: Option<String>,
 }
 
@@ -163,6 +167,7 @@ impl OidcOptions {
             || self.oidc_redirect_url.is_some()
             || self.oidc_frontend_base_url.is_some()
             || self.oidc_username_claim != "preferred_username"
+            || self.oidc_provider_name != DEFAULT_OIDC_PROVIDER_NAME
             || self.oidc_scopes != DEFAULT_OIDC_SCOPES
             || self.oidc_disable_pkce
     }
@@ -176,6 +181,7 @@ pub struct OidcConfig {
     pub client_secret: Option<String>,
     pub redirect_url: Option<RedirectUrl>,
     pub username_claim: String,
+    pub provider_name: String,
     pub scopes: Vec<String>,
     pub pkce_enabled: bool,
     pub frontend_base_url: Option<String>,
@@ -192,6 +198,7 @@ impl OidcConfig {
             client_secret: None,
             redirect_url: None,
             username_claim: "preferred_username".to_string(),
+            provider_name: DEFAULT_OIDC_PROVIDER_NAME.to_string(),
             scopes: DEFAULT_OIDC_SCOPES
                 .iter()
                 .map(|scope| scope.to_string())
@@ -209,6 +216,7 @@ impl OidcConfig {
             oidc_client_id,
             oidc_client_secret,
             oidc_username_claim,
+            oidc_provider_name,
             oidc_scopes,
             oidc_redirect_url,
             oidc_disable_pkce,
@@ -222,6 +230,9 @@ impl OidcConfig {
         }
         if oidc_username_claim.trim().is_empty() {
             return Err(anyhow::anyhow!("--oidc-username-claim cannot be empty"));
+        }
+        if oidc_provider_name.trim().is_empty() {
+            return Err(anyhow::anyhow!("--oidc-provider-name cannot be empty"));
         }
         let http_client = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -263,6 +274,7 @@ impl OidcConfig {
             client_secret,
             redirect_url: Some(redirect_url),
             username_claim: oidc_username_claim,
+            provider_name: oidc_provider_name.trim().to_string(),
             scopes: normalize_oidc_scopes(&oidc_scopes),
             pkce_enabled: !oidc_disable_pkce,
             frontend_base_url: oidc_frontend_base_url,
@@ -274,6 +286,23 @@ impl OidcConfig {
     pub fn client(&self) -> Option<&ConfiguredAppClient> {
         self.cached_client.as_deref()
     }
+
+    pub fn public_config(&self) -> OidcPublicConfig {
+        OidcPublicConfig {
+            enabled: self.enabled,
+            provider_name: self.provider_name.clone(),
+            authorization_flow: "authorization_code".to_string(),
+            pkce_enabled: self.pkce_enabled,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct OidcPublicConfig {
+    pub enabled: bool,
+    pub provider_name: String,
+    pub authorization_flow: String,
+    pub pkce_enabled: bool,
 }
 
 pub fn router() -> Router<AppStateInner> {
@@ -303,8 +332,10 @@ mod route {
 
     use super::OidcConfig;
 
-    pub async fn oidc_config(Extension(oidc): Extension<OidcConfig>) -> Json<serde_json::Value> {
-        Json(serde_json::json!({ "enabled": oidc.enabled }))
+    pub async fn oidc_config(
+        Extension(oidc): Extension<OidcConfig>,
+    ) -> Json<super::OidcPublicConfig> {
+        Json(oidc.public_config())
     }
 
     pub async fn oidc_login(
@@ -635,6 +666,9 @@ mod route {
             }
         };
 
+        let issuer = claims.issuer().as_str().to_string();
+        let subject = claims.subject().as_str().to_string();
+
         let pointer = super::dot_path_to_json_pointer(&oidc.username_claim);
         let username: Option<String> = claims_json
             .pointer(&pointer)
@@ -658,7 +692,7 @@ mod route {
 
         let user = match auth_session
             .backend
-            .find_or_create_oidc_user(&username)
+            .find_or_create_oidc_user(&issuer, &subject, &username)
             .await
         {
             Ok(u) => u,
@@ -731,5 +765,18 @@ mod tests {
                 ptr
             );
         }
+    }
+
+    #[test]
+    fn public_config_is_backward_compatible_and_descriptive() {
+        let config = OidcConfig::disabled().public_config();
+        assert!(!config.enabled);
+        assert_eq!(config.provider_name, DEFAULT_OIDC_PROVIDER_NAME);
+        assert_eq!(config.authorization_flow, "authorization_code");
+        assert!(!config.pkce_enabled);
+
+        let json = serde_json::to_value(config).unwrap();
+        assert_eq!(json["enabled"], false);
+        assert!(json.get("provider_name").is_some());
     }
 }

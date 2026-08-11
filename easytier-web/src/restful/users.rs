@@ -86,29 +86,38 @@ impl Backend {
         Ok(())
     }
 
-    /// Find a user by username, or auto-create one for OIDC-authenticated users.
+    /// Find or provision a user by the stable OIDC issuer and subject.
     ///
     /// Unlike the heartbeat auto-creation path (controlled by `allow_auto_create_user`),
     /// OIDC users are always provisioned automatically because their identity has already
     /// been verified by a trusted external Identity Provider (IdP).
-    pub async fn find_or_create_oidc_user(&self, username: &str) -> anyhow::Result<User> {
-        use entity::users;
-
-        // Try to find an existing user first.
-        if let Some(db_user) = users::Entity::find()
-            .filter(users::Column::Username.eq(username))
-            .one(self.db.orm_db())
-            .await?
-        {
+    pub async fn find_or_create_oidc_user(
+        &self,
+        issuer: &str,
+        subject: &str,
+        username: &str,
+    ) -> anyhow::Result<User> {
+        if let Some(db_user) = self.db.find_external_identity_user(issuer, subject).await? {
             return Ok(User {
                 tokens: vec![db_user.username.clone()],
                 db_user,
             });
         }
 
-        // User not found – auto-provision a local account backed by the IdP identity.
-        let db_user = self.db.auto_create_user(username).await?;
-        tracing::info!("Auto-provisioned OIDC user '{username}'");
+        // Never bind an external identity to an existing local account by username alone.
+        let db_user = match self
+            .db
+            .create_external_identity_user(issuer, subject, username)
+            .await
+        {
+            Ok(user) => user,
+            Err(create_error) => self
+                .db
+                .find_external_identity_user(issuer, subject)
+                .await?
+                .ok_or(create_error)?,
+        };
+        tracing::info!(username = %db_user.username, "Auto-provisioned OIDC user");
         Ok(User {
             tokens: vec![db_user.username.clone()],
             db_user,
@@ -246,3 +255,33 @@ impl AuthzBackend for Backend {
 //
 // Note that we've supplied our concrete backend here.
 pub type AuthSession = axum_login::AuthSession<Backend>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn oidc_identity_is_stable_and_does_not_capture_local_username() {
+        let db = db::Db::memory_db().await;
+        let backend = Backend::new(db.clone());
+        let local_admin_id = db.get_user_id("admin").await.unwrap().unwrap();
+
+        let first = backend
+            .find_or_create_oidc_user("https://auth.example.com", "subject-1", "admin")
+            .await
+            .unwrap();
+        let repeated = backend
+            .find_or_create_oidc_user("https://auth.example.com", "subject-1", "renamed-admin")
+            .await
+            .unwrap();
+        let other = backend
+            .find_or_create_oidc_user("https://auth.example.com", "subject-2", "admin")
+            .await
+            .unwrap();
+
+        assert_ne!(first.id(), local_admin_id);
+        assert_ne!(first.db_user.username, "admin");
+        assert_eq!(first.id(), repeated.id());
+        assert_ne!(first.id(), other.id());
+    }
+}
