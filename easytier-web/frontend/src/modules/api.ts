@@ -8,6 +8,9 @@ export interface ValidateConfigResponse {
 
 export interface OidcConfigResponse {
     enabled: boolean;
+    provider_name?: string;
+    authorization_flow?: 'authorization_code';
+    pkce_enabled?: boolean;
 }
 
 // 定义接口返回的数据结构
@@ -179,12 +182,7 @@ export class ApiClient {
     }
 
     public async getOidcConfig(): Promise<OidcConfigResponse> {
-        try {
-            const response = await this.client.get<any, OidcConfigResponse>('/auth/oidc/config');
-            return response;
-        } catch (error) {
-            return { enabled: false };
-        }
+        return await this.client.get<any, OidcConfigResponse>('/auth/oidc/config');
     }
 
     public oidcLoginUrl() {

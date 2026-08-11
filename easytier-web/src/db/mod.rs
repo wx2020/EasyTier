@@ -131,6 +131,116 @@ impl Db {
             .await
     }
 
+    pub async fn find_external_identity_user(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<Option<entity::users::Model>, DbErr> {
+        use entity::{external_identities, users};
+
+        let identity = external_identities::Entity::find()
+            .filter(external_identities::Column::Issuer.eq(issuer))
+            .filter(external_identities::Column::Subject.eq(subject))
+            .one(self.orm_db())
+            .await?;
+
+        match identity {
+            Some(identity) => {
+                users::Entity::find_by_id(identity.user_id)
+                    .one(self.orm_db())
+                    .await
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Creates a local user and binds it to a verified OIDC `(issuer, subject)` pair.
+    /// Existing local users are never linked by display name alone.
+    pub async fn create_external_identity_user(
+        &self,
+        issuer: &str,
+        subject: &str,
+        preferred_username: &str,
+    ) -> Result<entity::users::Model, DbErr> {
+        use entity::{external_identities, groups, users, users_groups};
+
+        let random_password = Uuid::new_v4().to_string();
+        let hashed_password =
+            tokio::task::spawn_blocking(move || password_auth::generate_hash(&random_password))
+                .await
+                .map_err(|e| DbErr::Custom(format!("Failed to hash password: {e}")))?;
+        let txn = self.orm_db().begin().await?;
+
+        if let Some(identity) = external_identities::Entity::find()
+            .filter(external_identities::Column::Issuer.eq(issuer))
+            .filter(external_identities::Column::Subject.eq(subject))
+            .one(&txn)
+            .await?
+        {
+            return users::Entity::find_by_id(identity.user_id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| DbErr::Custom("External identity has no local user".to_string()));
+        }
+
+        let base_username = preferred_username.trim();
+        let base_username = if base_username.is_empty() {
+            "oidc-user"
+        } else {
+            base_username
+        };
+        let username_exists = users::Entity::find()
+            .filter(users::Column::Username.eq(base_username))
+            .one(&txn)
+            .await?
+            .is_some();
+        let username = if username_exists {
+            format!(
+                "{base_username}~oidc-{}",
+                &Uuid::new_v4().simple().to_string()[..8]
+            )
+        } else {
+            base_username.to_string()
+        };
+
+        let user = users::ActiveModel {
+            username: Set(username),
+            password: Set(hashed_password),
+            ..Default::default()
+        };
+        let insert_result = users::Entity::insert(user).exec(&txn).await?;
+        let new_user = users::Entity::find_by_id(insert_result.last_insert_id)
+            .one(&txn)
+            .await?
+            .ok_or_else(|| DbErr::Custom("Failed to find newly created user".to_string()))?;
+
+        let users_group = groups::Entity::find()
+            .filter(groups::Column::Name.eq("users"))
+            .one(&txn)
+            .await?
+            .ok_or_else(|| DbErr::Custom("Users group not found".to_string()))?;
+        users_groups::Entity::insert(users_groups::ActiveModel {
+            user_id: Set(new_user.id),
+            group_id: Set(users_group.id),
+            ..Default::default()
+        })
+        .exec(&txn)
+        .await?;
+
+        external_identities::Entity::insert(external_identities::ActiveModel {
+            issuer: Set(issuer.to_string()),
+            subject: Set(subject.to_string()),
+            user_id: Set(new_user.id),
+            create_time: Set(chrono::Local::now().fixed_offset()),
+            ..Default::default()
+        })
+        .exec(&txn)
+        .await?;
+
+        txn.commit().await?;
+        Ok(new_user)
+    }
+
     // TODO: currently we don't have a token system, so we just use the user name as token
     pub async fn get_user_id_by_token<T: ToString>(
         &self,
