@@ -1,0 +1,85 @@
+name: EasyTier Web OAuth Linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - refactor/easytier-web-oauth
+    paths:
+      - "easytier-web/**"
+      - ".github/actions/**"
+      - ".github/workflows/easytier-web-oauth-linux.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "easytier-web/**"
+      - ".github/actions/**"
+      - ".github/workflows/easytier-web-oauth-linux.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  LINUX_TARGET: x86_64-unknown-linux-gnu
+
+jobs:
+  oauth-linux:
+    name: OAuth tests and Linux build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout committed source
+        uses: actions/checkout@v5
+
+      - name: Build web dashboard
+        uses: ./.github/actions/prepare-pnpm
+        with:
+          build-filter: "./easytier-web/*"
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          target: ${{ env.LINUX_TARGET }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: easytier-web-oauth-linux
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run easytier-web tests on Linux
+        run: cargo test --locked --package easytier-web --target $LINUX_TARGET
+
+      - name: Build embedded Linux binary
+        run: cargo build --locked --release --package easytier-web --features embed --target $LINUX_TARGET
+
+      - name: Verify Linux artifact
+        run: |
+          file "target/$LINUX_TARGET/release/easytier-web"
+          file "target/$LINUX_TARGET/release/easytier-web" | grep -q "ELF 64-bit"
+
+      - name: Upload Linux beta candidate
+        uses: actions/upload-artifact@v5
+        with:
+          name: easytier-web-oauth-linux-x86_64-${{ github.sha }}
+          path: target/${{ env.LINUX_TARGET }}/release/easytier-web
+          if-no-files-found: error
+          retention-days: 14
