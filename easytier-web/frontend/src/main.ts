@@ -9,11 +9,6 @@ import ConfirmationService from 'primevue/confirmationservice';
 import { I18nUtils } from 'easytier-frontend-lib'
 
 import { createRouter, createWebHashHistory } from 'vue-router'
-import MainPage from './components/MainPage.vue'
-import Login from './components/Login.vue'
-import DeviceList from './components/DeviceList.vue'
-import DeviceManagement from './components/DeviceManagement.vue'
-import Dashboard from './components/Dashboard.vue'
 import DialogService from 'primevue/dialogservice';
 import ToastService from 'primevue/toastservice';
 import ConfigGenerator from './components/ConfigGenerator.vue'
@@ -24,35 +19,35 @@ const routes = [
             {
                 name: 'login',
                 path: '',
-                component: Login,
+                component: () => import('./components/Login.vue'),
                 alias: 'login',
                 props: { isRegistering: false }
             },
             {
                 name: 'register',
                 path: 'register',
-                component: Login,
+                component: () => import('./components/Login.vue'),
                 props: { isRegistering: true }
             }
         ]
     },
     {
-        path: '/h/:apiHost', component: MainPage, children: [
+        path: '/h/:apiHost', component: () => import('./components/MainPage.vue'), children: [
             {
                 path: '',
                 alias: 'dashboard',
                 name: 'dashboard',
-                component: Dashboard,
+                component: () => import('./components/Dashboard.vue'),
             },
             {
                 path: 'deviceList',
                 name: 'deviceList',
-                component: DeviceList,
+                component: () => import('./components/DeviceList.vue'),
                 children: [
                     {
                         path: 'device/:deviceId/:instanceId?',
                         name: 'deviceManagement',
-                        component: DeviceManagement,
+                        component: () => import('./components/DeviceManagement.vue'),
                     }
                 ]
             },
