@@ -1,6 +1,7 @@
 name: EasyTier GUI
 
 on:
+  workflow_call:
   push:
     branches: ["develop", "main", "releases/**"]
   pull_request:
@@ -26,7 +27,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     # Map a step output to a job output
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip == 'true' && !startsWith(github.ref_name, 'releases/') }}
+      should_skip: ${{ github.ref_type != 'tag' && steps.skip_check.outputs.should_skip == 'true' && !startsWith(github.ref_name, 'releases/') }}
     steps:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5

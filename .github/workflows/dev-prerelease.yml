@@ -1,0 +1,102 @@
+name: Dev Pre-release
+
+on:
+  push:
+    tags:
+      - "v*-beta.*"
+      - "v*-dev.*"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: dev-prerelease-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and source branch
+        env:
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(beta|dev)\.[0-9]+$ ]]; then
+            echo "Pre-release tags must use vX.Y.Z-beta.N or vX.Y.Z-dev.N." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin dev
+          if ! git merge-base --is-ancestor "$SHA" origin/dev; then
+            echo "Pre-release tag $TAG must point to a commit reachable from dev." >&2
+            exit 1
+          fi
+
+  test:
+    needs: validate
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  core:
+    needs: validate
+    uses: ./.github/workflows/core.yml
+    secrets: inherit
+
+  gui:
+    needs: validate
+    uses: ./.github/workflows/gui.yml
+    secrets: inherit
+
+  mobile:
+    needs: validate
+    uses: ./.github/workflows/mobile.yml
+    secrets: inherit
+
+  publish:
+    needs: [validate, test, core, gui, mobile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: easytier-*
+          path: release-assets
+
+      - name: Download Magisk artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: Easytier-Magisk
+          path: release-assets/Easytier-Magisk
+
+      - name: Package artifacts and create checksums
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          rm -rf easytier-web-dashboard
+          for artifact in */; do
+            artifact="${artifact%/}"
+            zip -qr "${artifact}.zip" "$artifact"
+            rm -rf "$artifact"
+          done
+          sha256sum ./*.zip > SHA256SUMS.txt
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            Development pre-release built from `dev` commit `${{ github.sha }}`.
+            Verify downloaded files against `SHA256SUMS.txt`.
+          files: |
+            release-assets/*.zip
+            release-assets/SHA256SUMS.txt

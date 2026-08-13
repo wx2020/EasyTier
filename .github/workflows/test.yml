@@ -1,6 +1,7 @@
 name: EasyTier Test
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches: [ "develop", "main", "dev" ]
@@ -27,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: ${{ github.ref_type != 'tag' && steps.skip_check.outputs.should_skip == 'true' }}
     steps:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v5
