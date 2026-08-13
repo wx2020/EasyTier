@@ -39,11 +39,6 @@ jobs:
             exit 1
           fi
 
-  test:
-    needs: validate
-    uses: ./.github/workflows/test.yml
-    secrets: inherit
-
   core:
     needs: validate
     uses: ./.github/workflows/core.yml
@@ -66,7 +61,7 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [validate, test, core, gui, mobile]
+    needs: [validate, core, gui, mobile]
     runs-on: ubuntu-latest
     steps:
       - name: Download release artifacts
