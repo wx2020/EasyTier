@@ -278,23 +278,6 @@ web:
     back_to_login: Back to Login
     login: Login
     sso_login: "SSO Login"
-    welcome: "Connect every device. Manage one secure network."
-    subtitle: "Sign in to manage EasyTier devices, networks, and runtime configuration."
-    secure_auth: "OAuth 2.0/OIDC authorization code flow with PKCE"
-    account_access: "Account access"
-    create_account: "New account"
-    api_host_placeholder: "https://easytier.example.com"
-    api_host_hint: "Choose the EasyTier API server that owns this account."
-    sso_provider: "Single Sign-On"
-    continue_with: "Continue with {provider}"
-    checking_sso: "Checking single sign-on"
-    or_password: "or continue with password"
-    sso_unavailable: "Single sign-on could not be checked for this API host. Password login remains available."
-    login_failed: "Login failed"
-    register_failed: "Registration failed"
-    register_success: "Registration successful"
-    refresh_captcha: "Refresh captcha"
-    captcha_alt: "Registration captcha"
 
   register:
     title: Register

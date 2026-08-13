@@ -9,6 +9,11 @@ import ConfirmationService from 'primevue/confirmationservice';
 import { I18nUtils } from 'easytier-frontend-lib'
 
 import { createRouter, createWebHashHistory } from 'vue-router'
+import MainPage from './components/MainPage.vue'
+import Login from './components/Login.vue'
+import DeviceList from './components/DeviceList.vue'
+import DeviceManagement from './components/DeviceManagement.vue'
+import Dashboard from './components/Dashboard.vue'
 import DialogService from 'primevue/dialogservice';
 import ToastService from 'primevue/toastservice';
 import ConfigGenerator from './components/ConfigGenerator.vue'
@@ -19,35 +24,35 @@ const routes = [
             {
                 name: 'login',
                 path: '',
-                component: () => import('./components/Login.vue'),
+                component: Login,
                 alias: 'login',
                 props: { isRegistering: false }
             },
             {
                 name: 'register',
                 path: 'register',
-                component: () => import('./components/Login.vue'),
+                component: Login,
                 props: { isRegistering: true }
             }
         ]
     },
     {
-        path: '/h/:apiHost', component: () => import('./components/MainPage.vue'), children: [
+        path: '/h/:apiHost', component: MainPage, children: [
             {
                 path: '',
                 alias: 'dashboard',
                 name: 'dashboard',
-                component: () => import('./components/Dashboard.vue'),
+                component: Dashboard,
             },
             {
                 path: 'deviceList',
                 name: 'deviceList',
-                component: () => import('./components/DeviceList.vue'),
+                component: DeviceList,
                 children: [
                     {
                         path: 'device/:deviceId/:instanceId?',
                         name: 'deviceManagement',
-                        component: () => import('./components/DeviceManagement.vue'),
+                        component: DeviceManagement,
                     }
                 ]
             },

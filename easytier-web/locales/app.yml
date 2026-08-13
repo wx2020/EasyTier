@@ -58,9 +58,6 @@ cli:
   oidc_username_claim:
     en: "The OIDC claim to use as the local username, default: preferred_username"
     zh-CN: "用作本地用户名的 OIDC claim 字段，默认: preferred_username"
-  oidc_provider_name:
-    en: "Display name for the OAuth 2.0/OIDC provider on the login page, for example Authelia"
-    zh-CN: "登录页显示的 OAuth 2.0/OIDC 身份提供商名称，例如 Authelia"
   oidc_scopes:
     en: "OIDC scopes to request during login. Supports comma-separated values or repeated --oidc-scopes flags, default: openid,profile"
     zh-CN: "登录时请求的 OIDC scopes。支持逗号分隔或多次指定 --oidc-scopes，默认: openid,profile"

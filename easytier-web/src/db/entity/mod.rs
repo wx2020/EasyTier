@@ -2,7 +2,6 @@
 
 pub mod prelude;
 
-pub mod external_identities;
 pub mod groups;
 pub mod groups_permissions;
 pub mod managed_config_revisions;
