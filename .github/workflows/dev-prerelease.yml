@@ -47,16 +47,22 @@ jobs:
   core:
     needs: validate
     uses: ./.github/workflows/core.yml
+    with:
+      prerelease: true
     secrets: inherit
 
   gui:
     needs: validate
     uses: ./.github/workflows/gui.yml
+    with:
+      prerelease: true
     secrets: inherit
 
   mobile:
     needs: validate
     uses: ./.github/workflows/mobile.yml
+    with:
+      prerelease: true
     secrets: inherit
 
   publish:

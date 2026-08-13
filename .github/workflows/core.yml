@@ -2,6 +2,11 @@ name: EasyTier Core
 
 on:
   workflow_call:
+    inputs:
+      prerelease:
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
   push:
     branches: [ "develop", "main", "dev", "releases/**" ]
@@ -65,58 +70,74 @@ jobs:
           - TARGET: x86_64-unknown-linux-musl
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-x86_64
+            prerelease: true
           - TARGET: aarch64-unknown-linux-musl
             OS: ubuntu-24.04-arm
             ARTIFACT_NAME: linux-aarch64
+            prerelease: true
 
           - TARGET: riscv64gc-unknown-linux-musl
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-riscv64
+            prerelease: false
           - TARGET: loongarch64-unknown-linux-musl
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-loongarch64
+            prerelease: false
 
           - TARGET: armv7-unknown-linux-musleabihf # raspberry pi 2-3-4, not tested
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-armv7hf
+            prerelease: false
           - TARGET: armv7-unknown-linux-musleabi # raspberry pi 2-3-4, not tested
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-armv7
+            prerelease: false
           - TARGET: arm-unknown-linux-musleabihf # raspberry pi 0-1, not tested
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-armhf
+            prerelease: false
           - TARGET: arm-unknown-linux-musleabi # raspberry pi 0-1, not tested
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-arm
+            prerelease: false
 
           - TARGET: mips-unknown-linux-musl
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-mips
+            prerelease: false
           - TARGET: mipsel-unknown-linux-musl
             OS: ubuntu-24.04
             ARTIFACT_NAME: linux-mipsel
+            prerelease: false
 
           - TARGET: x86_64-unknown-freebsd
             OS: ubuntu-24.04
             ARTIFACT_NAME: freebsd-13.2-x86_64
             BSD_VERSION: 13.2
+            prerelease: false
 
           - TARGET: x86_64-apple-darwin
             OS: macos-latest
             ARTIFACT_NAME: macos-x86_64
+            prerelease: true
           - TARGET: aarch64-apple-darwin
             OS: macos-latest
             ARTIFACT_NAME: macos-aarch64
+            prerelease: true
 
           - TARGET: x86_64-pc-windows-msvc
             OS: windows-latest
             ARTIFACT_NAME: windows-x86_64
+            prerelease: true
           - TARGET: i686-pc-windows-msvc
             OS: windows-latest
             ARTIFACT_NAME: windows-i686
+            prerelease: false
           - TARGET: aarch64-pc-windows-msvc
             OS: windows-11-arm
             ARTIFACT_NAME: windows-arm64
+            prerelease: false
 
     runs-on: ${{ matrix.OS }}
     env:
@@ -127,7 +148,7 @@ jobs:
     needs:
       - pre_job
       - build_web
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: needs.pre_job.outputs.should_skip != 'true' && (!inputs.prerelease || matrix.prerelease)
     steps:
       - uses: actions/checkout@v5
 
