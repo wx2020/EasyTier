@@ -45,45 +45,10 @@ jobs:
   build-gui:
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - TARGET: x86_64-unknown-linux-musl
-            OS: ubuntu-24.04
-            GUI_TARGET: x86_64-unknown-linux-gnu
-            ARTIFACT_NAME: linux-x86_64
-            prerelease: true
-          - TARGET: aarch64-unknown-linux-musl
-            OS: ubuntu-24.04-arm
-            GUI_TARGET: aarch64-unknown-linux-gnu
-            ARTIFACT_NAME: linux-aarch64
-            prerelease: true
-
-          - TARGET: x86_64-apple-darwin
-            OS: macos-latest
-            GUI_TARGET: x86_64-apple-darwin
-            ARTIFACT_NAME: macos-x86_64
-            prerelease: true
-          - TARGET: aarch64-apple-darwin
-            OS: macos-latest
-            GUI_TARGET: aarch64-apple-darwin
-            ARTIFACT_NAME: macos-aarch64
-            prerelease: true
-
-          - TARGET: x86_64-pc-windows-msvc
-            OS: windows-latest
-            GUI_TARGET: x86_64-pc-windows-msvc
-            ARTIFACT_NAME: windows-x86_64
-            prerelease: true
-          - TARGET: i686-pc-windows-msvc
-            OS: windows-latest
-            GUI_TARGET: i686-pc-windows-msvc
-            ARTIFACT_NAME: windows-i686
-            prerelease: false
-          - TARGET: aarch64-pc-windows-msvc
-            OS: windows-11-arm
-            GUI_TARGET: aarch64-pc-windows-msvc
-            ARTIFACT_NAME: windows-arm64
-            prerelease: false
+      matrix: >-
+        ${{ fromJSON(inputs.prerelease &&
+        '{"include":[{"TARGET":"x86_64-unknown-linux-musl","OS":"ubuntu-24.04","GUI_TARGET":"x86_64-unknown-linux-gnu","ARTIFACT_NAME":"linux-x86_64"},{"TARGET":"aarch64-unknown-linux-musl","OS":"ubuntu-24.04-arm","GUI_TARGET":"aarch64-unknown-linux-gnu","ARTIFACT_NAME":"linux-aarch64"},{"TARGET":"x86_64-apple-darwin","OS":"macos-latest","GUI_TARGET":"x86_64-apple-darwin","ARTIFACT_NAME":"macos-x86_64"},{"TARGET":"aarch64-apple-darwin","OS":"macos-latest","GUI_TARGET":"aarch64-apple-darwin","ARTIFACT_NAME":"macos-aarch64"},{"TARGET":"x86_64-pc-windows-msvc","OS":"windows-latest","GUI_TARGET":"x86_64-pc-windows-msvc","ARTIFACT_NAME":"windows-x86_64"}]}' ||
+        '{"include":[{"TARGET":"x86_64-unknown-linux-musl","OS":"ubuntu-24.04","GUI_TARGET":"x86_64-unknown-linux-gnu","ARTIFACT_NAME":"linux-x86_64"},{"TARGET":"aarch64-unknown-linux-musl","OS":"ubuntu-24.04-arm","GUI_TARGET":"aarch64-unknown-linux-gnu","ARTIFACT_NAME":"linux-aarch64"},{"TARGET":"x86_64-apple-darwin","OS":"macos-latest","GUI_TARGET":"x86_64-apple-darwin","ARTIFACT_NAME":"macos-x86_64"},{"TARGET":"aarch64-apple-darwin","OS":"macos-latest","GUI_TARGET":"aarch64-apple-darwin","ARTIFACT_NAME":"macos-aarch64"},{"TARGET":"x86_64-pc-windows-msvc","OS":"windows-latest","GUI_TARGET":"x86_64-pc-windows-msvc","ARTIFACT_NAME":"windows-x86_64"},{"TARGET":"i686-pc-windows-msvc","OS":"windows-latest","GUI_TARGET":"i686-pc-windows-msvc","ARTIFACT_NAME":"windows-i686"},{"TARGET":"aarch64-pc-windows-msvc","OS":"windows-11-arm","GUI_TARGET":"aarch64-pc-windows-msvc","ARTIFACT_NAME":"windows-arm64"}]}') }}
 
     runs-on: ${{ matrix.OS }}
     env:
@@ -93,7 +58,7 @@ jobs:
       GUI_TARGET: ${{ matrix.GUI_TARGET }}
       OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true' && (!inputs.prerelease || matrix.prerelease)
+    if: needs.pre_job.outputs.should_skip != 'true'
     steps:
       - uses: actions/checkout@v5
 

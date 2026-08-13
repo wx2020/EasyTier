@@ -45,20 +45,10 @@ jobs:
   build-mobile:
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - TARGET: aarch64-linux-android
-            ARCH: aarch64
-            prerelease: true
-          - TARGET: armv7-linux-androideabi
-            ARCH: armv7
-            prerelease: false
-          - TARGET: i686-linux-android
-            ARCH: i686
-            prerelease: false
-          - TARGET: x86_64-linux-android
-            ARCH: x86_64
-            prerelease: false
+      matrix: >-
+        ${{ fromJSON(inputs.prerelease &&
+        '{"include":[{"TARGET":"aarch64-linux-android","ARCH":"aarch64"}]}' ||
+        '{"include":[{"TARGET":"aarch64-linux-android","ARCH":"aarch64"},{"TARGET":"armv7-linux-androideabi","ARCH":"armv7"},{"TARGET":"i686-linux-android","ARCH":"i686"},{"TARGET":"x86_64-linux-android","ARCH":"x86_64"}]}') }}
     runs-on: ubuntu-latest
     env:
       NAME: easytier
@@ -66,7 +56,7 @@ jobs:
       ARCH: ${{ matrix.ARCH }}
       OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true' && (!inputs.prerelease || matrix.prerelease)
+    if: needs.pre_job.outputs.should_skip != 'true'
     steps:
       - uses: actions/checkout@v5
 
