@@ -90,6 +90,7 @@ jobs:
             zip -qr "${artifact}.zip" "$artifact"
             rm -rf "$artifact"
           done
+          sha256sum ./*.zip > SHA256SUMS.txt
 
       - name: Generate release summary
         id: notes
@@ -143,3 +144,4 @@ jobs:
           body: ${{ steps.notes.outputs.body }}
           files: |
             release-assets/*.zip
+            release-assets/SHA256SUMS.txt
