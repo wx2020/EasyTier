@@ -268,9 +268,7 @@ impl Cli {
 
         Ok(ResolvedCli {
             db: merge_value(self.db, file.server.db, "et.db".to_string()),
-            console_log_level: self
-                .console_log_level
-                .or(file.server.console_log_level),
+            console_log_level: self.console_log_level.or(file.server.console_log_level),
             file_log_level: self.file_log_level.or(file.server.file_log_level),
             file_log_dir: self.file_log_dir.or(file.server.file_log_dir),
             config_server_port: merge_value(
@@ -320,23 +318,11 @@ impl Cli {
                 ),
             },
             oidc: restful::oidc::OidcOptions {
-                oidc_issuer_url: self
-                    .oidc
-                    .oidc_issuer_url
-                    .or(file.oidc.issuer_url),
+                oidc_issuer_url: self.oidc.oidc_issuer_url.or(file.oidc.issuer_url),
                 oidc_client_id: self.oidc.oidc_client_id.or(file.oidc.client_id),
-                oidc_client_secret: self
-                    .oidc
-                    .oidc_client_secret
-                    .or(file.oidc.client_secret),
-                oidc_username_claim: self
-                    .oidc
-                    .oidc_username_claim
-                    .or(file.oidc.username_claim),
-                oidc_provider_name: self
-                    .oidc
-                    .oidc_provider_name
-                    .or(file.oidc.provider_name),
+                oidc_client_secret: self.oidc.oidc_client_secret.or(file.oidc.client_secret),
+                oidc_username_claim: self.oidc.oidc_username_claim.or(file.oidc.username_claim),
+                oidc_provider_name: self.oidc.oidc_provider_name.or(file.oidc.provider_name),
                 oidc_scopes: self.oidc.oidc_scopes.or(file.oidc.scopes),
                 oidc_redirect_url: self.oidc.oidc_redirect_url.or(file.oidc.redirect_url),
                 oidc_disable_pkce: self.oidc.oidc_disable_pkce.or(file.oidc.disable_pkce),

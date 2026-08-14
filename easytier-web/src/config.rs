@@ -121,7 +121,11 @@ mod tests {
         );
         assert_eq!(
             config.oidc.scopes.as_ref().unwrap(),
-            &vec!["openid".to_string(), "profile".to_string(), "email".to_string()]
+            &vec![
+                "openid".to_string(),
+                "profile".to_string(),
+                "email".to_string()
+            ]
         );
         assert_eq!(config.features.disable_registration, Some(true));
     }

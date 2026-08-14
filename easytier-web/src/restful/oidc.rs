@@ -245,8 +245,8 @@ impl OidcConfig {
                 "--oidc-issuer-url, --oidc-client-id and --oidc-redirect-url are required when using OIDC authentication"
             ));
         }
-        let oidc_username_claim = oidc_username_claim
-            .unwrap_or_else(|| "preferred_username".to_string());
+        let oidc_username_claim =
+            oidc_username_claim.unwrap_or_else(|| "preferred_username".to_string());
         let oidc_provider_name =
             oidc_provider_name.unwrap_or_else(|| DEFAULT_OIDC_PROVIDER_NAME.to_string());
         let oidc_scopes = oidc_scopes.unwrap_or_else(|| {
