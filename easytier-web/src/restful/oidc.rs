@@ -135,25 +135,30 @@ pub struct OidcOptions {
     #[arg(long, env = "OIDC_CLIENT_SECRET", help = t!("cli.oidc_client_secret").to_string())]
     pub oidc_client_secret: Option<String>,
 
-    #[arg(long, env = "ET_OIDC_USERNAME_CLAIM", default_value = "preferred_username", help = t!("cli.oidc_username_claim").to_string())]
-    pub oidc_username_claim: String,
+    #[arg(long, env = "ET_OIDC_USERNAME_CLAIM", help = t!("cli.oidc_username_claim").to_string())]
+    pub oidc_username_claim: Option<String>,
 
-    #[arg(long, env = "ET_OIDC_PROVIDER_NAME", default_value = DEFAULT_OIDC_PROVIDER_NAME, help = t!("cli.oidc_provider_name").to_string())]
-    pub oidc_provider_name: String,
+    #[arg(long, env = "ET_OIDC_PROVIDER_NAME", help = t!("cli.oidc_provider_name").to_string())]
+    pub oidc_provider_name: Option<String>,
 
     #[arg(
         long,
         value_delimiter = ',',
-        default_values = DEFAULT_OIDC_SCOPES,
         help = t!("cli.oidc_scopes").to_string()
     )]
-    pub oidc_scopes: Vec<String>,
+    pub oidc_scopes: Option<Vec<String>>,
 
     #[arg(long, env = "ET_OIDC_REDIRECT_URL", help = t!("cli.oidc_redirect_url").to_string())]
     pub oidc_redirect_url: Option<String>,
 
-    #[arg(long, default_value = "false", help = t!("cli.oidc_disable_pkce").to_string())]
-    pub oidc_disable_pkce: bool,
+    #[arg(
+        long,
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true",
+        help = t!("cli.oidc_disable_pkce").to_string()
+    )]
+    pub oidc_disable_pkce: Option<bool>,
 
     #[arg(long, env = "ET_OIDC_FRONTEND_BASE_URL", help = t!("cli.oidc_frontend_base_url").to_string())]
     pub oidc_frontend_base_url: Option<String>,
@@ -166,10 +171,22 @@ impl OidcOptions {
             || self.oidc_client_secret.is_some()
             || self.oidc_redirect_url.is_some()
             || self.oidc_frontend_base_url.is_some()
-            || self.oidc_username_claim != "preferred_username"
-            || self.oidc_provider_name != DEFAULT_OIDC_PROVIDER_NAME
-            || self.oidc_scopes != DEFAULT_OIDC_SCOPES
-            || self.oidc_disable_pkce
+            || self
+                .oidc_username_claim
+                .as_deref()
+                .is_some_and(|claim| claim != "preferred_username")
+            || self
+                .oidc_provider_name
+                .as_deref()
+                .is_some_and(|name| name != DEFAULT_OIDC_PROVIDER_NAME)
+            || self.oidc_scopes.as_deref().is_some_and(|scopes| {
+                scopes.len() != DEFAULT_OIDC_SCOPES.len()
+                    || scopes
+                        .iter()
+                        .zip(DEFAULT_OIDC_SCOPES)
+                        .any(|(scope, default)| scope.as_str() != default)
+            })
+            || self.oidc_disable_pkce == Some(true)
     }
 }
 
@@ -228,6 +245,18 @@ impl OidcConfig {
                 "--oidc-issuer-url, --oidc-client-id and --oidc-redirect-url are required when using OIDC authentication"
             ));
         }
+        let oidc_username_claim = oidc_username_claim
+            .unwrap_or_else(|| "preferred_username".to_string());
+        let oidc_provider_name =
+            oidc_provider_name.unwrap_or_else(|| DEFAULT_OIDC_PROVIDER_NAME.to_string());
+        let oidc_scopes = oidc_scopes.unwrap_or_else(|| {
+            DEFAULT_OIDC_SCOPES
+                .iter()
+                .map(|scope| scope.to_string())
+                .collect()
+        });
+        let oidc_disable_pkce = oidc_disable_pkce.unwrap_or(false);
+
         if oidc_username_claim.trim().is_empty() {
             return Err(anyhow::anyhow!("--oidc-username-claim cannot be empty"));
         }

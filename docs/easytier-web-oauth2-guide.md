@@ -88,6 +88,23 @@ export ET_OIDC_USERNAME_CLAIM="preferred_username"
 
 ## easytier-web 配置
 
+### TOML 配置
+
+OIDC 也可以放在 easytier-web 的 TOML 启动配置中：
+
+```toml
+[oidc]
+issuer_url = "https://auth.example.com"
+client_id = "easytier-web"
+client_secret = "<client-secret>"
+redirect_url = "https://easytier.example.com/api/v1/auth/oidc/callback"
+provider_name = "Authelia"
+username_claim = "preferred_username"
+scopes = ["openid", "profile"]
+```
+
+通过 `./easytier-web --config-file /etc/easytier/web.toml` 启动。完整字段、优先级和敏感信息处理见 [easytier-web TOML 配置](easytier-web-config.md)。
+
 ### 环境变量
 
 ```bash

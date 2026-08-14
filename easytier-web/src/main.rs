@@ -3,9 +3,12 @@
 #[macro_use]
 extern crate rust_i18n;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{net::IpAddr, time::Duration};
 
+#[cfg(feature = "embed")]
+use anyhow::Context as _;
 use clap::Parser;
 use easytier::tunnel::websocket::WsTunnelListener;
 use easytier::{
@@ -25,6 +28,7 @@ use easytier::tunnel::IpScheme;
 use mimalloc::MiMalloc;
 
 mod client_manager;
+mod config;
 mod db;
 mod migrator;
 mod restful;
@@ -42,13 +46,19 @@ rust_i18n::i18n!("locales", fallback = "en");
 #[command(name = "easytier-web", author, version = EASYTIER_VERSION , about, long_about = None)]
 struct Cli {
     #[arg(
+        long,
+        env = "ET_WEB_CONFIG_FILE",
+        help = t!("cli.config_file").to_string()
+    )]
+    config_file: Option<PathBuf>,
+
+    #[arg(
         short,
         long,
         env = "ET_WEB_DB",
-        default_value = "et.db",
         help = t!("cli.db").to_string()
     )]
-    db: String,
+    db: Option<String>,
 
     #[arg(
         long,
@@ -75,36 +85,32 @@ struct Cli {
         long,
         short='c',
         env = "ET_CONFIG_SERVER_PORT",
-        default_value = "22020",
         help = t!("cli.config_server_port").to_string(),
     )]
-    config_server_port: u16,
+    config_server_port: Option<u16>,
 
     #[arg(
         long,
         short='p',
         env = "ET_CONFIG_SERVER_PROTOCOL",
-        default_value = "udp",
         help = t!("cli.config_server_protocol").to_string(),
     )]
-    config_server_protocol: String,
+    config_server_protocol: Option<String>,
 
     #[arg(
         long,
         short='a',
         env = "ET_API_SERVER_PORT",
-        default_value = "11211",
         help = t!("cli.api_server_port").to_string(),
     )]
-    api_server_port: u16,
+    api_server_port: Option<u16>,
 
     #[arg(
         long,
         env = "ET_API_SERVER_ADDR",
-        default_value = "0.0.0.0",
         help = t!("cli.api_server_addr").to_string(),
     )]
-    api_server_addr: IpAddr,
+    api_server_addr: Option<IpAddr>,
 
     #[arg(
         long,
@@ -116,10 +122,9 @@ struct Cli {
     #[arg(
         long,
         env = "ET_HEARTBEAT_MIN_RESPONSE_MS",
-        default_value = "0",
         help = t!("cli.heartbeat_min_response_ms").to_string(),
     )]
-    heartbeat_min_response_ms: u64,
+    heartbeat_min_response_ms: Option<u64>,
 
     #[cfg(feature = "embed")]
     #[arg(
@@ -134,19 +139,20 @@ struct Cli {
     #[arg(
         long,
         env = "ET_WEB_SERVER_ADDR",
-        default_value = "0.0.0.0",
         help = t!("cli.web_server_addr").to_string(),
     )]
-    web_server_addr: IpAddr,
+    web_server_addr: Option<IpAddr>,
 
     #[cfg(feature = "embed")]
     #[arg(
         long,
         env = "ET_NO_WEB",
         help = t!("cli.no_web").to_string(),
-        default_value = "false"
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true"
     )]
-    no_web: bool,
+    no_web: Option<bool>,
 
     #[cfg(feature = "embed")]
     #[arg(
@@ -154,10 +160,10 @@ struct Cli {
         env = "ET_API_HOST",
         help = t!("cli.api_host").to_string()
     )]
-    api_host: Option<url::Url>,
+    api_host: Option<String>,
 
     #[command(flatten)]
-    feature_flags: FeatureFlags,
+    feature_flags: FeatureFlagOptions,
 
     #[command(flatten)]
     oidc: restful::oidc::OidcOptions,
@@ -192,27 +198,171 @@ pub struct WebhookOptions {
 }
 
 #[derive(Debug, Clone, Default, clap::Args)]
-pub struct FeatureFlags {
+struct FeatureFlagOptions {
     /// Whether user registration via the web UI is disabled.
     #[arg(
         long,
         env = "ET_DISABLE_REGISTRATION",
-        default_value = "false",
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true",
         help = t!("cli.disable_registration").to_string()
     )]
-    pub disable_registration: bool,
+    disable_registration: Option<bool>,
 
     /// Whether to auto-create users when they connect via heartbeat with an unknown token.
     #[arg(
         long,
         env = "ET_ALLOW_AUTO_CREATE_USER",
-        default_value = "false",
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true",
         help = t!("cli.allow_auto_create_user").to_string()
     )]
+    allow_auto_create_user: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FeatureFlags {
+    pub disable_registration: bool,
     pub allow_auto_create_user: bool,
 }
 
-impl LoggingConfigLoader for &Cli {
+struct ResolvedCli {
+    db: String,
+    console_log_level: Option<String>,
+    file_log_level: Option<String>,
+    file_log_dir: Option<String>,
+    config_server_port: u16,
+    config_server_protocol: String,
+    api_server_port: u16,
+    api_server_addr: IpAddr,
+    geoip_db: Option<String>,
+    heartbeat_min_response_ms: u64,
+    #[cfg(feature = "embed")]
+    web_server_port: Option<u16>,
+    #[cfg(feature = "embed")]
+    web_server_addr: IpAddr,
+    #[cfg(feature = "embed")]
+    no_web: bool,
+    #[cfg(feature = "embed")]
+    api_host: Option<url::Url>,
+    feature_flags: FeatureFlags,
+    oidc: restful::oidc::OidcOptions,
+    webhook: WebhookOptions,
+}
+
+fn merge_value<T>(cli: Option<T>, file: Option<T>, default: T) -> T {
+    cli.or(file).unwrap_or(default)
+}
+
+impl Cli {
+    fn resolve(self, file: config::WebConfigFile) -> anyhow::Result<ResolvedCli> {
+        #[cfg(feature = "embed")]
+        let api_host = self
+            .api_host
+            .or(file.web.api_host)
+            .map(|value| value.parse())
+            .transpose()
+            .context("invalid API host URL")?;
+
+        Ok(ResolvedCli {
+            db: merge_value(self.db, file.server.db, "et.db".to_string()),
+            console_log_level: self
+                .console_log_level
+                .or(file.server.console_log_level),
+            file_log_level: self.file_log_level.or(file.server.file_log_level),
+            file_log_dir: self.file_log_dir.or(file.server.file_log_dir),
+            config_server_port: merge_value(
+                self.config_server_port,
+                file.server.config_server_port,
+                22020,
+            ),
+            config_server_protocol: merge_value(
+                self.config_server_protocol,
+                file.server.config_server_protocol,
+                "udp".to_string(),
+            ),
+            api_server_port: merge_value(self.api_server_port, file.server.api_server_port, 11211),
+            api_server_addr: merge_value(
+                self.api_server_addr,
+                file.server.api_server_addr,
+                "0.0.0.0".parse().unwrap(),
+            ),
+            geoip_db: self.geoip_db.or(file.server.geoip_db),
+            heartbeat_min_response_ms: merge_value(
+                self.heartbeat_min_response_ms,
+                file.server.heartbeat_min_response_ms,
+                0,
+            ),
+            #[cfg(feature = "embed")]
+            web_server_port: self.web_server_port.or(file.web.web_server_port),
+            #[cfg(feature = "embed")]
+            web_server_addr: merge_value(
+                self.web_server_addr,
+                file.web.web_server_addr,
+                "0.0.0.0".parse().unwrap(),
+            ),
+            #[cfg(feature = "embed")]
+            no_web: merge_value(self.no_web, file.web.no_web, false),
+            #[cfg(feature = "embed")]
+            api_host,
+            feature_flags: FeatureFlags {
+                disable_registration: merge_value(
+                    self.feature_flags.disable_registration,
+                    file.features.disable_registration,
+                    false,
+                ),
+                allow_auto_create_user: merge_value(
+                    self.feature_flags.allow_auto_create_user,
+                    file.features.allow_auto_create_user,
+                    false,
+                ),
+            },
+            oidc: restful::oidc::OidcOptions {
+                oidc_issuer_url: self
+                    .oidc
+                    .oidc_issuer_url
+                    .or(file.oidc.issuer_url),
+                oidc_client_id: self.oidc.oidc_client_id.or(file.oidc.client_id),
+                oidc_client_secret: self
+                    .oidc
+                    .oidc_client_secret
+                    .or(file.oidc.client_secret),
+                oidc_username_claim: self
+                    .oidc
+                    .oidc_username_claim
+                    .or(file.oidc.username_claim),
+                oidc_provider_name: self
+                    .oidc
+                    .oidc_provider_name
+                    .or(file.oidc.provider_name),
+                oidc_scopes: self.oidc.oidc_scopes.or(file.oidc.scopes),
+                oidc_redirect_url: self.oidc.oidc_redirect_url.or(file.oidc.redirect_url),
+                oidc_disable_pkce: self.oidc.oidc_disable_pkce.or(file.oidc.disable_pkce),
+                oidc_frontend_base_url: self
+                    .oidc
+                    .oidc_frontend_base_url
+                    .or(file.oidc.frontend_base_url),
+            },
+            webhook: WebhookOptions {
+                webhook_url: self.webhook.webhook_url.or(file.webhook.url),
+                webhook_secret: self.webhook.webhook_secret.or(file.webhook.secret),
+                internal_auth_token: self
+                    .webhook
+                    .internal_auth_token
+                    .or(file.webhook.internal_auth_token),
+                web_instance_id: self.webhook.web_instance_id.or(file.webhook.instance_id),
+                web_instance_api_base_url: self
+                    .webhook
+                    .web_instance_api_base_url
+                    .or(file.webhook.instance_api_base_url),
+            },
+        })
+    }
+}
+
+impl LoggingConfigLoader for &ResolvedCli {
     fn get_console_logger_config(&self) -> ConsoleLoggerConfig {
         ConsoleLoggerConfig {
             level: self.console_log_level.clone(),
@@ -288,6 +438,20 @@ async fn main() {
     setup_panic_handler();
 
     let cli = Cli::parse();
+    let config_file = match config::WebConfigFile::load(cli.config_file.as_deref()) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Failed to load web configuration: {e:#}");
+            std::process::exit(2);
+        }
+    };
+    let cli = match cli.resolve(config_file) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Failed to resolve web configuration: {e:#}");
+            std::process::exit(2);
+        }
+    };
     log::init(&cli, false).unwrap();
 
     // Validate OIDC configuration: check split-deploy specific requirements

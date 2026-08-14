@@ -1,6 +1,9 @@
 _version: 2
 
 cli:
+  config_file:
+    en: "Path to the easytier-web TOML configuration file"
+    zh-CN: "easytier-web TOML 配置文件路径"
   db:
     en: "path to the sqlite3 database file, used to save all the data"
     zh-CN: "sqlite3 数据库文件路径, 用于保存所有数据"
