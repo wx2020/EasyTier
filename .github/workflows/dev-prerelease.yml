@@ -80,7 +80,7 @@ jobs:
           name: Easytier-Magisk
           path: release-assets/Easytier-Magisk
 
-      - name: Package artifacts and create checksums
+      - name: Package artifacts
         working-directory: release-assets
         run: |
           set -euo pipefail
@@ -90,7 +90,6 @@ jobs:
             zip -qr "${artifact}.zip" "$artifact"
             rm -rf "$artifact"
           done
-          sha256sum ./*.zip > SHA256SUMS.txt
 
       - name: Generate release summary
         id: notes
@@ -132,15 +131,6 @@ jobs:
             printf '%b\n\n' "$compare"
             printf '### Included Changes\n\n'
             cat changes.md
-            printf '\n### Build Artifacts\n\n'
-            for artifact in release-assets/*.zip; do
-              printf -- '- `%s`\n' "$(basename "$artifact")"
-            done
-            printf '\n### Validation\n\n'
-            printf -- '- Required Core, GUI, and Android release builds completed successfully.\n'
-            printf -- '- Verify downloaded files with `SHA256SUMS.txt`.\n'
-            printf '\n### Notes\n\n'
-            printf -- '- Report regressions with this tag and source commit.\n'
             printf 'EOF\n'
           } >> "$GITHUB_OUTPUT"
 
@@ -153,4 +143,3 @@ jobs:
           body: ${{ steps.notes.outputs.body }}
           files: |
             release-assets/*.zip
-            release-assets/SHA256SUMS.txt
