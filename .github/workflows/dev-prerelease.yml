@@ -1,4 +1,4 @@
-name: Dev Pre-release
+name: EasyTier Dev Pre-release
 
 on:
   push:
@@ -64,6 +64,10 @@ jobs:
     needs: [validate, core, gui, mobile]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Download release artifacts
         uses: actions/download-artifact@v5
         with:
@@ -88,16 +92,65 @@ jobs:
           done
           sha256sum ./*.zip > SHA256SUMS.txt
 
+      - name: Generate release summary
+        id: notes
+        env:
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+
+          if [[ "$TAG" == *-dev.* ]]; then
+            pattern='v*-dev.*'
+          else
+            pattern='v*-beta.*'
+          fi
+
+          previous_tag=
+          while IFS= read -r candidate; do
+            if [[ "$candidate" != "$TAG" ]]; then
+              previous_tag="$candidate"
+              break
+            fi
+          done < <(git tag --merged "$SHA" --sort=-version:refname --list "$pattern")
+
+          if [[ -n "$previous_tag" ]]; then
+            git log --format='- `%h` %s' "$previous_tag..$SHA" > changes.md
+            compare="- Changes since: \`$previous_tag\`\n- Compare: [\`$previous_tag...$TAG\`](https://github.com/$GITHUB_REPOSITORY/compare/$previous_tag...$TAG)"
+          else
+            git log -1 --format='- `%h` %s' "$SHA" > changes.md
+            compare='- No earlier pre-release tag was found in this channel.'
+          fi
+
+          {
+            printf 'body<<EOF\n'
+            printf '## EasyTier %s\n\n' "$TAG"
+            printf 'Development pre-release. Not recommended for production use.\n\n'
+            printf '### Source\n\n'
+            printf -- '- Branch: `dev`\n- Commit: [`%s`](https://github.com/%s/commit/%s)\n' "$(git rev-parse --short "$SHA")" "$GITHUB_REPOSITORY" "$SHA"
+            printf '%b\n\n' "$compare"
+            printf '### Included Changes\n\n'
+            cat changes.md
+            printf '\n### Build Artifacts\n\n'
+            for artifact in release-assets/*.zip; do
+              printf -- '- `%s`\n' "$(basename "$artifact")"
+            done
+            printf '\n### Validation\n\n'
+            printf -- '- Required Core, GUI, and Android release builds completed successfully.\n'
+            printf -- '- Verify downloaded files with `SHA256SUMS.txt`.\n'
+            printf '\n### Notes\n\n'
+            printf -- '- Report regressions with this tag and source commit.\n'
+            printf 'EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish pre-release
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          generate_release_notes: true
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          body: |
-            Development pre-release built from `dev` commit `${{ github.sha }}`.
-            Verify downloaded files against `SHA256SUMS.txt`.
+          body: ${{ steps.notes.outputs.body }}
           files: |
             release-assets/*.zip
             release-assets/SHA256SUMS.txt
